@@ -497,7 +497,7 @@ private extension RealtimeOpenAIConversation {
     }
 
     /// Calculates the RMS volume from an AVAudioPCMBuffer.
-    private func calculateVolume(from buffer: AVAudioPCMBuffer) -> Float {
+    private func calculateVolume(from buffer: AVAudioPCMBuffer) -> CGFloat {
         guard let channelData = buffer.floatChannelData?[0] else { return 0.0 }
         let channelDataArray = Array(UnsafeBufferPointer(start: channelData, count: Int(buffer.frameLength)))
 
@@ -505,7 +505,7 @@ private extension RealtimeOpenAIConversation {
         let rms = sqrt(channelDataArray.map { $0 * $0 }.reduce(0, +) / Float(buffer.frameLength))
 
         // Normalize to 0.0 - 1.0
-        return min(max(rms, 0.0), 1.0)
+        return CGFloat(min(max(rms, 0.0), 1.0))
     }
 
     /// Calculates volume levels across four frequency bands from an AVAudioPCMBuffer.
