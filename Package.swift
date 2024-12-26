@@ -10,7 +10,7 @@ let package = Package(
 		.macOS(.v14),
 		.watchOS(.v10),
 		.visionOS(.v1),
-		.macCatalyst(.v17),
+		.macCatalyst(.v16),
 	],
 	products: [
 		.library(name: "OpenAI", type: .static, targets: ["OpenAI"]),
