@@ -4,6 +4,7 @@ import Foundation
 /// > Warning: Exposing any observable property externally (such as by having a computed property use `isEmpty` will lead to very hard to debug crashes
 /// >
 /// > If you really need to, manually observe the property using `withObservationTracking` and write changes in the main actor.
+@available(iOS 17.0, *)
 @Observable final class UnsafeMutableArray<T: Sendable>: @unchecked Sendable {
 	private var array = [T]()
 

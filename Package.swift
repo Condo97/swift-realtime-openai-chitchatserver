@@ -5,7 +5,7 @@ import PackageDescription
 let package = Package(
 	name: "OpenAI",
 	platforms: [
-		.iOS(.v17),
+		.iOS(.v16),
 		.tvOS(.v17),
 		.macOS(.v14),
 		.watchOS(.v10),

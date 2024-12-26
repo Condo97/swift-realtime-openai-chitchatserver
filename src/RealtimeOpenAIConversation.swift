@@ -6,8 +6,9 @@ public enum ConversationError: Error {
 	case converterInitializationFailed
 }
 
+@available(iOS 17.0, *)
 @Observable
-public final class Conversation: Sendable {
+public final class RealtimeOpenAIConversation: Sendable {
 	private let client: RealtimeAPI
 	@MainActor private var cancelTask: (() -> Void)?
 	private let errorStream: AsyncStream<ServerError>.Continuation
@@ -176,7 +177,8 @@ public final class Conversation: Sendable {
 }
 
 /// Listening/Speaking public API
-public extension Conversation {
+@available(iOS 17.0, *)
+public extension RealtimeOpenAIConversation {
 	/// Start listening to the user's microphone and sending audio data to the model.
 	/// This will automatically call `startHandlingVoice` if it hasn't been called yet.
 	/// > Warning: Make sure to handle the case where the user denies microphone access.
@@ -272,7 +274,8 @@ public extension Conversation {
 }
 
 /// Event handling private API
-private extension Conversation {
+@available(iOS 17.0, *)
+private extension RealtimeOpenAIConversation {
 	@MainActor func handleEvent(_ event: ServerEvent) {
 		switch event {
 			case let .error(event):
@@ -375,7 +378,8 @@ private extension Conversation {
 }
 
 /// Audio processing private API
-private extension Conversation {
+@available(iOS 17.0, *)
+private extension RealtimeOpenAIConversation {
 	private func queueAudioSample(_ event: ServerEvent.ResponseAudioDeltaEvent) {
 		guard let buffer = AVAudioPCMBuffer.fromData(event.delta, format: desiredFormat) else {
 			print("Failed to create audio buffer.")
@@ -458,7 +462,8 @@ private extension Conversation {
 }
 
 // Other private methods
-extension Conversation {
+@available(iOS 17.0, *)
+extension RealtimeOpenAIConversation {
 	/// This hack is required because relying on `queuedSamples.isEmpty` directly crashes the app.
 	/// This is because updating the `queuedSamples` array on a background thread will trigger a re-render of any views that depend on it on that thread.
 	/// So, instead, we observe the property and update `isPlaying` on the main actor.
