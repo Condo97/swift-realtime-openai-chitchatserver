@@ -18,7 +18,9 @@ public final class RealtimeOpenAIConversation: Sendable {
     private let queuedSamples = UnsafeMutableArray<String>()
     private let apiConverter = UnsafeInteriorMutable<AVAudioConverter>()
     private let userConverter = UnsafeInteriorMutable<AVAudioConverter>()
-    private let desiredFormat = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: 24000, channels: 1, interleaved: false)!
+    
+    // Updated desiredFormat with standard sample rate and Float32 format
+    private let desiredFormat: AVAudioFormat
 
     /// A stream of errors that occur during the conversation.
     public let errors: AsyncStream<ServerError>
@@ -66,6 +68,13 @@ public final class RealtimeOpenAIConversation: Sendable {
     private init(client: RealtimeAPI) {
         self.client = client
         (errors, errorStream) = AsyncStream.makeStream(of: ServerError.self)
+
+        // Initialize desiredFormat with Float32 and standard sample rate
+        let standardSampleRate = AVAudioSession.sharedInstance().sampleRate
+        guard let format = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: standardSampleRate, channels: 1, interleaved: false) else {
+            fatalError("Failed to create desired audio format.")
+        }
+        self.desiredFormat = format
 
         let task = Task.detached { [weak self] in
             guard let self else { return }
@@ -192,10 +201,8 @@ public extension RealtimeOpenAIConversation {
         guard !isListening else { return }
         if !handlingVoice { try startHandlingVoice() }
 
-        Task.detached {
-            self.audioEngine.inputNode.installTap(onBus: 0, bufferSize: 4096, format: self.audioEngine.inputNode.outputFormat(forBus: 0)) { [weak self] buffer, _ in
-                self?.processAudioBufferFromUser(buffer: buffer)
-            }
+        audioEngine.inputNode.installTap(onBus: 0, bufferSize: 4096, format: audioEngine.inputNode.outputFormat(forBus: 0)) { [weak self] buffer, _ in
+            self?.processAudioBufferFromUser(buffer: buffer)
         }
 
         isListening = true
@@ -407,7 +414,7 @@ private extension RealtimeOpenAIConversation {
         // Calculate and update the returned audio volume
         let volume = calculateVolume(from: buffer)
         Task { @MainActor in
-            self.returnedAudioVolume = volume
+            self.returnedAudioVolume = CGFloat(volume)
         }
 
         queuedSamples.push(event.itemId)
@@ -441,7 +448,7 @@ private extension RealtimeOpenAIConversation {
         // Calculate and update the user volume
         let volume = calculateVolume(from: convertedBuffer)
         Task { @MainActor in
-            self.userVolume = volume
+            self.userVolume = CGFloat(volume)
         }
 
         Task {
@@ -484,7 +491,7 @@ private extension RealtimeOpenAIConversation {
     }
 
     /// Calculates the RMS volume from an AVAudioPCMBuffer.
-    private func calculateVolume(from buffer: AVAudioPCMBuffer) -> CGFloat {
+    private func calculateVolume(from buffer: AVAudioPCMBuffer) -> Float {
         guard let channelData = buffer.floatChannelData?[0] else { return 0.0 }
         let channelDataArray = Array(UnsafeBufferPointer(start: channelData, count: Int(buffer.frameLength)))
 
@@ -492,7 +499,7 @@ private extension RealtimeOpenAIConversation {
         let rms = sqrt(channelDataArray.map { $0 * $0 }.reduce(0, +) / Float(buffer.frameLength))
 
         // Normalize to 0.0 - 1.0
-        return CGFloat(min(max(rms, 0.0), 1.0))
+        return min(max(rms, 0.0), 1.0)
     }
 }
 
