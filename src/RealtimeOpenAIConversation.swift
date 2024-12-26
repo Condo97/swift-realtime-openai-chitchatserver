@@ -61,10 +61,10 @@ public final class RealtimeOpenAIConversation: Sendable {
     }
 
     /// Volume level of the user's speech (0.0 to 1.0)
-    @MainActor public var userVolume: Float = 0.0
+    @MainActor public var userVolume: CGFloat = 0.0
 
     /// Volume level of the returned audio speech (0.0 to 1.0)
-    @MainActor public var returnedAudioVolume: Float = 0.0
+    @MainActor public var returnedAudioVolume: CGFloat = 0.0
 
     /// Volume levels across four frequency bands for the user's speech (0.0 to 1.0)
     @MainActor public var userFrequencyVolumes: [CGFloat] = [0.0, 0.0, 0.0, 0.0]
