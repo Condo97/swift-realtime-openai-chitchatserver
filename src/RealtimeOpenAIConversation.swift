@@ -58,10 +58,13 @@ public final class RealtimeOpenAIConversation: Sendable {
     }
 
     /// Volume level of the user's speech (0.0 to 1.0)
-    @MainActor public var userVolume: Float = 0.0
+    @MainActor public var userVolume: CGFloat = 0.0
+
+    /// Array of user volume levels for live visualization (0.0 to 1.0)
+    @MainActor public var userVolumeLevels: [CGFloat] = []
 
     /// Volume level of the returned audio speech (0.0 to 1.0)
-    @MainActor public var returnedAudioVolume: Float = 0.0
+    @MainActor public var returnedAudioVolume: CGFloat = 0.0
 
     private init(client: RealtimeAPI) {
         self.client = client
@@ -438,10 +441,16 @@ private extension RealtimeOpenAIConversation {
         guard let sampleBytes = convertedBuffer.audioBufferList.pointee.mBuffers.mData else { return }
         let audioData = Data(bytes: sampleBytes, count: Int(convertedBuffer.audioBufferList.pointee.mBuffers.mDataByteSize))
 
-        // Calculate and update the user volume
+        // Calculate and update the user volume and volume levels array
         let volume = calculateVolume(from: convertedBuffer)
         Task { @MainActor in
             self.userVolume = volume
+            self.userVolumeLevels.append(CGFloat(volume))
+            
+            // Limit the array to the last 50 measurements
+            if self.userVolumeLevels.count > 50 {
+                self.userVolumeLevels.removeFirst()
+            }
         }
 
         Task {
@@ -484,7 +493,7 @@ private extension RealtimeOpenAIConversation {
     }
 
     /// Calculates the RMS volume from an AVAudioPCMBuffer.
-    private func calculateVolume(from buffer: AVAudioPCMBuffer) -> Float {
+    private func calculateVolume(from buffer: AVAudioPCMBuffer) -> CGFloat {
         guard let channelData = buffer.floatChannelData?[0] else { return 0.0 }
         let channelDataArray = Array(UnsafeBufferPointer(start: channelData, count: Int(buffer.frameLength)))
 
@@ -492,7 +501,7 @@ private extension RealtimeOpenAIConversation {
         let rms = sqrt(channelDataArray.map { $0 * $0 }.reduce(0, +) / Float(buffer.frameLength))
 
         // Normalize to 0.0 - 1.0
-        return min(max(rms, 0.0), 1.0)
+        return CGFloat(min(max(rms, 0.0), 1.0))
     }
 }
 
