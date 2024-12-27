@@ -84,7 +84,7 @@ public final class RealtimeOpenAIConversation: Sendable {
 				}
 			}
 
-//			_keepIsPlayingPropertyUpdated()
+//			_keepIsPlayingPropertyUpdated() // TODO: Contribute this
 		}
 	}
 
@@ -256,7 +256,7 @@ public extension RealtimeOpenAIConversation {
 
             playerNode.stop()
             queuedSamples.clear()
-            isPlaying = false
+            isPlaying = false // TODO: Contribute this
         }
 
 	/// Stop playing audio responses from the model and listening to the user's microphone.
@@ -353,7 +353,7 @@ private extension RealtimeOpenAIConversation {
 				if handlingVoice { interruptSpeech() }
 			case .inputAudioBufferSpeechStopped:
 				isUserSpeaking = false
-        case let .responseOutputItemDone(event):
+        case let .responseOutputItemDone(event): // TODO: Contribute this
             updateEvent(id: event.item.id) { message in
                 guard case let .message(newMessage) = event.item else { return }
                 
@@ -417,14 +417,14 @@ private extension RealtimeOpenAIConversation {
                 if self.queuedSamples.isEmpty {
                     self.playerNode.pause()
                     DispatchQueue.main.async { [weak self] in
-                        self?.isPlaying = false
+                        self?.isPlaying = false // TODO: Contribute this
                     }
                 }
             }
 
             playerNode.play()
             DispatchQueue.main.async { [weak self] in
-                self?.isPlaying = true
+                self?.isPlaying = true // TODO: Contribute this
             }
         }
 
@@ -485,7 +485,7 @@ extension RealtimeOpenAIConversation {
 	/// This hack is required because relying on `queuedSamples.isEmpty` directly crashes the app.
 	/// This is because updating the `queuedSamples` array on a background thread will trigger a re-render of any views that depend on it on that thread.
 	/// So, instead, we observe the property and update `isPlaying` on the main actor.
-//	private func _keepIsPlayingPropertyUpdated() {
+//	private func _keepIsPlayingPropertyUpdated() { // TODO: Contribute this
 //		withObservationTracking { _ = queuedSamples.isEmpty } onChange: {
 //			Task { @MainActor in
 //				self.isPlaying = self.queuedSamples.isEmpty
