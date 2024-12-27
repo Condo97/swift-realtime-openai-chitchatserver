@@ -445,8 +445,13 @@ private extension RealtimeOpenAIConversation {
 
 	private func processAudioBufferFromUser(buffer: AVAudioPCMBuffer) {
 		let ratio = desiredFormat.sampleRate / buffer.format.sampleRate
+        
+        guard let converter = userConverter.get() else {
+            print("User converter not initialized.")
+            return
+        }
 
-		guard let convertedBuffer = convertBuffer(buffer: buffer, using: userConverter.get()!, capacity: AVAudioFrameCount(Double(buffer.frameLength) * ratio)) else {
+        guard let convertedBuffer = convertBuffer(buffer: buffer, using: converter, capacity: AVAudioFrameCount(Double(buffer.frameLength) * ratio)) else {
 			print("Buffer conversion failed.")
 			return
 		}
@@ -508,14 +513,19 @@ private extension RealtimeOpenAIConversation {
     
     /// Calculates the RMS volume from an AVAudioPCMBuffer.
     private func calculateVolume(from buffer: AVAudioPCMBuffer) -> CGFloat {
-        guard let channelData = buffer.floatChannelData?[0] else { return 0.0 }
-        let channelDataArray = Array(UnsafeBufferPointer(start: channelData, count: Int(buffer.frameLength)))
-
-        // Calculate RMS
-        let rms = sqrt(channelDataArray.map { $0 * $0 }.reduce(0, +) / Float(buffer.frameLength))
-
-        // Normalize to 0.0 - 1.0
+        guard let intData = buffer.int16ChannelData?[0] else { return 0.0 }
+        let intDataArray = Array(UnsafeBufferPointer(start: intData, count: Int(buffer.frameLength)))
+        let floatDataArray = intDataArray.map { Float($0) / Float(Int16.max) }
+        let rms = sqrt(floatDataArray.map { $0 * $0 }.reduce(0, +) / Float(buffer.frameLength))
         return CGFloat(min(max(rms, 0.0), 1.0))
+//        guard let channelData = buffer.floatChannelData?[0] else { return 0.0 }
+//        let channelDataArray = Array(UnsafeBufferPointer(start: channelData, count: Int(buffer.frameLength)))
+//
+//        // Calculate RMS
+//        let rms = sqrt(channelDataArray.map { $0 * $0 }.reduce(0, +) / Float(buffer.frameLength))
+//
+//        // Normalize to 0.0 - 1.0
+//        return CGFloat(min(max(rms, 0.0), 1.0))
     }
 
     /// Calculates volume levels across four frequency bands from an AVAudioPCMBuffer.
