@@ -56,6 +56,15 @@ public final class RealtimeOpenAIConversation: Sendable {
 			default: return nil
 		} }
 	}
+    
+    /// Volume level of the user's speech (0.0 to 1.0)
+    @MainActor public var userVolume: CGFloat = 0.0
+
+    /// Volume level of the returned audio speech (0.0 to 1.0)
+    @MainActor public var returnedAudioVolume: CGFloat = 0.0
+
+    /// Volume levels across four frequency bands for the user's speech (0.0 to 1.0)
+    @MainActor public var userFrequencyVolumes: [CGFloat] = [0.0, 0.0, 0.0, 0.0]
 
 	private init(client: RealtimeAPI) {
 		self.client = client
@@ -407,6 +416,12 @@ private extension RealtimeOpenAIConversation {
                 print("Failed to convert buffer.")
                 return
             }
+        
+        // Calculate and update the returned audio volume
+        let volume = calculateVolume(from: buffer)
+        Task { @MainActor in
+            self.returnedAudioVolume = volume
+        }
 
             queuedSamples.push(event.itemId)
 
@@ -438,6 +453,19 @@ private extension RealtimeOpenAIConversation {
 
 		guard let sampleBytes = convertedBuffer.audioBufferList.pointee.mBuffers.mData else { return }
 		let audioData = Data(bytes: sampleBytes, count: Int(convertedBuffer.audioBufferList.pointee.mBuffers.mDataByteSize))
+        
+        // Calculate and update the user volume
+        let volume = calculateVolume(from: convertedBuffer)
+        Task { @MainActor in
+            self.userVolume = volume
+        }
+
+        // Calculate and update the frequency-based user volumes
+        if let frequencyVolumes = updateAudioLevels(from: convertedBuffer) {
+            Task { @MainActor in
+                self.userFrequencyVolumes = frequencyVolumes
+            }
+        }
 
 		Task {
 			try await send(audioDelta: audioData)
@@ -477,6 +505,63 @@ private extension RealtimeOpenAIConversation {
 
 		return convertedBuffer
 	}
+    
+    /// Calculates the RMS volume from an AVAudioPCMBuffer.
+    private func calculateVolume(from buffer: AVAudioPCMBuffer) -> CGFloat {
+        guard let channelData = buffer.floatChannelData?[0] else { return 0.0 }
+        let channelDataArray = Array(UnsafeBufferPointer(start: channelData, count: Int(buffer.frameLength)))
+
+        // Calculate RMS
+        let rms = sqrt(channelDataArray.map { $0 * $0 }.reduce(0, +) / Float(buffer.frameLength))
+
+        // Normalize to 0.0 - 1.0
+        return CGFloat(min(max(rms, 0.0), 1.0))
+    }
+
+    /// Calculates volume levels across four frequency bands from an AVAudioPCMBuffer.
+    private func updateAudioLevels(from buffer: AVAudioPCMBuffer) -> [CGFloat]? {
+        guard let channelData = buffer.floatChannelData else { return nil }
+        
+        var audioLevels: [CGFloat] = Array(repeating: 0.0, count: 4) // Four levels TODO: Make this dynamic
+
+        let channelCount = Int(buffer.format.channelCount)
+        let frameLength = Int(buffer.frameLength)
+        let lowPassRange = 1000.0 // Low frequency up to 1000 Hz
+        let midLowRange = 2000.0   // Mid-low frequency up to 2000 Hz
+        let midHighRange = 3000.0  // Mid-high frequency up to 3000 Hz
+        let highRange = 4000.0     // High frequency up to 4000 Hz
+
+        var lowLevel: Float = 0.0
+        var midLowLevel: Float = 0.0
+        var midHighLevel: Float = 0.0
+        var highLevel: Float = 0.0
+
+        // Simple amplitude measurement
+        for frame in 0..<frameLength {
+            let sample = channelData[0][frame]
+
+            // Categorize sample into frequency bands
+            if frame < Int(lowPassRange) {
+                lowLevel += abs(sample)
+            } else if frame < Int(midLowRange) {
+                midLowLevel += abs(sample)
+            } else if frame < Int(midHighRange) {
+                midHighLevel += abs(sample)
+            } else if frame < Int(highRange) {
+                highLevel += abs(sample)
+            }
+        }
+
+        // Normalize and set levels
+        let maxVolume = 80.0
+        audioLevels[0] = max(min(CGFloat(lowLevel) / CGFloat(maxVolume), 1.0), 0.0)
+        audioLevels[1] = max(min(CGFloat(midLowLevel) / CGFloat(maxVolume), 1.0), 0.0)
+        audioLevels[2] = max(min(CGFloat(midHighLevel) / CGFloat(maxVolume), 1.0), 0.0)
+        audioLevels[3] = max(min(CGFloat(highLevel) / CGFloat(maxVolume), 1.0), 0.0)
+        
+        return audioLevels
+    }
+    
 }
 
 // Other private methods
