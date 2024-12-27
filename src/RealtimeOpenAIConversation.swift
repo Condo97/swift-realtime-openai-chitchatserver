@@ -91,7 +91,8 @@ public final class RealtimeOpenAIConversation: Sendable {
 	deinit {
 		errorStream.finish()
 
-		DispatchQueue.main.asyncAndWait {
+//		DispatchQueue.main.asyncAndWait {
+        DispatchQueue.main.async { [self] in
 			cancelTask?()
 			stopHandlingVoice()
 		}
