@@ -354,7 +354,7 @@ private extension RealtimeOpenAIConversation {
 			case .inputAudioBufferSpeechStopped:
 				isUserSpeaking = false
         case let .responseOutputItemDone(event):
-            updateEvent(id: event.eventId) { message in
+            updateEvent(id: event.item.id) { message in
                 guard case let .message(newMessage) = event.item else { return }
                 
                 message = newMessage
