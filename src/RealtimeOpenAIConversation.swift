@@ -353,6 +353,12 @@ private extension RealtimeOpenAIConversation {
 				if handlingVoice { interruptSpeech() }
 			case .inputAudioBufferSpeechStopped:
 				isUserSpeaking = false
+        case let .responseOutputItemDone(event):
+            updateEvent(id: event.eventId) { message in
+                guard case let .message(newMessage) = event.item else { return }
+                
+                message = newMessage
+            }
 			default:
 				return
 		}
