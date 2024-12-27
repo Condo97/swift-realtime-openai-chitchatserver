@@ -1,19 +1,19 @@
 import Foundation
 
-public enum Item: Identifiable, Equatable, Sendable {
+public enum Item: Identifiable, Equatable, Hashable, Sendable {
 	public enum ItemStatus: String, Codable, Sendable {
 		case completed
 		case in_progress
 		case incomplete
 	}
 
-	public enum ItemRole: String, Codable, Sendable {
+	public enum ItemRole: String, Codable, Hashable, Sendable {
 		case user
 		case system
 		case assistant
 	}
 
-	public struct Audio: Equatable, Sendable {
+	public struct Audio: Equatable, Hashable, Sendable {
 		/// Base64-encoded audio bytes.
 		public var audio: Data
 		/// The transcript of the audio.
@@ -25,13 +25,13 @@ public enum Item: Identifiable, Equatable, Sendable {
 		}
 	}
 
-	public enum ContentPart: Equatable, Sendable {
+	public enum ContentPart: Equatable, Hashable, Sendable {
 		case text(String)
 		case audio(Audio)
 	}
 
-	public struct Message: Codable, Equatable, Sendable {
-		public enum Content: Equatable, Sendable {
+	public struct Message: Codable, Equatable, Hashable, Sendable {
+		public enum Content: Equatable, Hashable, Sendable {
 			case text(String)
 			case audio(Audio)
 			case input_text(String)
@@ -70,7 +70,7 @@ public enum Item: Identifiable, Equatable, Sendable {
 		}
 	}
 
-	public struct FunctionCall: Codable, Equatable, Sendable {
+	public struct FunctionCall: Codable, Equatable, Hashable, Sendable {
 		/// The unique ID of the item.
 		public var id: String
 		/// The type of the item
@@ -85,7 +85,7 @@ public enum Item: Identifiable, Equatable, Sendable {
 		public var arguments: String
 	}
 
-	public struct FunctionCallOutput: Codable, Equatable, Sendable {
+	public struct FunctionCallOutput: Codable, Equatable, Hashable, Sendable {
 		/// The unique ID of the item.
 		public var id: String
 		/// The type of the item
