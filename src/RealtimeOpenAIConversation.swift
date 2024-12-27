@@ -56,10 +56,6 @@ public final class RealtimeOpenAIConversation: Sendable {
 			default: return nil
 		} }
 	}
-    
-    public var playerNodeIsPlaying: Bool {
-        playerNode.isPlaying
-    }
 
 	private init(client: RealtimeAPI) {
 		self.client = client
@@ -88,7 +84,7 @@ public final class RealtimeOpenAIConversation: Sendable {
 				}
 			}
 
-			_keepIsPlayingPropertyUpdated()
+//			_keepIsPlayingPropertyUpdated()
 		}
 	}
 
@@ -240,41 +236,43 @@ public extension RealtimeOpenAIConversation {
 
 	/// Interrupt the model's response if it's currently playing.
 	/// This lets the model know that the user didn't hear the full response.
-	@MainActor func interruptSpeech() {
-		if isPlaying,
-		   let nodeTime = playerNode.lastRenderTime,
-		   let playerTime = playerNode.playerTime(forNodeTime: nodeTime),
-		   let itemID = queuedSamples.first
-		{
-			let audioTimeInMiliseconds = Int((Double(playerTime.sampleTime) / playerTime.sampleRate) * 1000)
+    @MainActor func interruptSpeech() {
+            if isPlaying,
+               let nodeTime = playerNode.lastRenderTime,
+               let playerTime = playerNode.playerTime(forNodeTime: nodeTime),
+               let itemID = queuedSamples.first
+            {
+                let audioTimeInMilliseconds = Int((Double(playerTime.sampleTime) / playerTime.sampleRate) * 1000)
 
-			Task {
-				do {
-					try await client.send(event: .truncateConversationItem(forItem: itemID, atAudioMs: audioTimeInMiliseconds))
-				} catch {
-					print("Failed to send automatic truncation event: \(error)")
-				}
-			}
-		}
+                Task {
+                    do {
+                        try await client.send(event: .truncateConversationItem(forItem: itemID, atAudioMs: audioTimeInMilliseconds))
+                    } catch {
+                        print("Failed to send automatic truncation event: \(error)")
+                    }
+                }
+            }
 
-		playerNode.stop()
-		queuedSamples.clear()
-	}
+            playerNode.stop()
+            queuedSamples.clear()
+            isPlaying = false
+        }
 
 	/// Stop playing audio responses from the model and listening to the user's microphone.
-	@MainActor func stopHandlingVoice() {
-		guard handlingVoice else { return }
+    @MainActor func stopHandlingVoice() {
+            guard handlingVoice else { return }
 
-		audioEngine.inputNode.removeTap(onBus: 0)
-		audioEngine.stop()
-		audioEngine.disconnectNodeInput(playerNode)
-		audioEngine.disconnectNodeOutput(playerNode)
+            audioEngine.inputNode.removeTap(onBus: 0)
+            audioEngine.stop()
+            audioEngine.disconnectNodeInput(playerNode)
+            audioEngine.disconnectNodeOutput(playerNode)
 
-		try? AVAudioSession.sharedInstance().setActive(false)
+            try? AVAudioSession.sharedInstance().setActive(false)
 
-		isListening = false
-		handlingVoice = false
-	}
+            isListening = false
+            handlingVoice = false
+            isPlaying = false
+        }
 }
 
 /// Event handling private API
@@ -384,35 +382,43 @@ private extension RealtimeOpenAIConversation {
 /// Audio processing private API
 @available(iOS 17.0, *)
 private extension RealtimeOpenAIConversation {
-	private func queueAudioSample(_ event: ServerEvent.ResponseAudioDeltaEvent) {
-		guard let buffer = AVAudioPCMBuffer.fromData(event.delta, format: desiredFormat) else {
-			print("Failed to create audio buffer.")
-			return
-		}
+    private func queueAudioSample(_ event: ServerEvent.ResponseAudioDeltaEvent) {
+            guard let buffer = AVAudioPCMBuffer.fromData(event.delta, format: desiredFormat) else {
+                print("Failed to create audio buffer.")
+                return
+            }
 
-		guard let converter = apiConverter.lazy({ AVAudioConverter(from: buffer.format, to: playerNode.outputFormat(forBus: 0)) }) else {
-			print("Failed to create audio converter.")
-			return
-		}
+            guard let converter = apiConverter.lazy({ AVAudioConverter(from: buffer.format, to: playerNode.outputFormat(forBus: 0)) }) else {
+                print("Failed to create audio converter.")
+                return
+            }
 
-		let outputFrameCapacity = AVAudioFrameCount(ceil(converter.outputFormat.sampleRate / buffer.format.sampleRate) * Double(buffer.frameLength))
+            let outputFrameCapacity = AVAudioFrameCount(ceil(converter.outputFormat.sampleRate / buffer.format.sampleRate) * Double(buffer.frameLength))
 
-		guard let sample = convertBuffer(buffer: buffer, using: converter, capacity: outputFrameCapacity) else {
-			print("Failed to convert buffer.")
-			return
-		}
+            guard let sample = convertBuffer(buffer: buffer, using: converter, capacity: outputFrameCapacity) else {
+                print("Failed to convert buffer.")
+                return
+            }
 
-		queuedSamples.push(event.itemId)
+            queuedSamples.push(event.itemId)
 
-		playerNode.scheduleBuffer(sample, at: nil, completionCallbackType: .dataPlayedBack) { [weak self] _ in
-			guard let self else { return }
+            playerNode.scheduleBuffer(sample, at: nil, completionCallbackType: .dataPlayedBack) { [weak self] _ in
+                guard let self else { return }
 
-			self.queuedSamples.popFirst()
-			if self.queuedSamples.isEmpty { playerNode.pause() }
-		}
+                self.queuedSamples.popFirst()
+                if self.queuedSamples.isEmpty {
+                    self.playerNode.pause()
+                    DispatchQueue.main.async { [weak self] in
+                        self?.isPlaying = false
+                    }
+                }
+            }
 
-		playerNode.play()
-	}
+            playerNode.play()
+            DispatchQueue.main.async { [weak self] in
+                self?.isPlaying = true
+            }
+        }
 
 	private func processAudioBufferFromUser(buffer: AVAudioPCMBuffer) {
 		let ratio = desiredFormat.sampleRate / buffer.format.sampleRate
@@ -471,13 +477,13 @@ extension RealtimeOpenAIConversation {
 	/// This hack is required because relying on `queuedSamples.isEmpty` directly crashes the app.
 	/// This is because updating the `queuedSamples` array on a background thread will trigger a re-render of any views that depend on it on that thread.
 	/// So, instead, we observe the property and update `isPlaying` on the main actor.
-	private func _keepIsPlayingPropertyUpdated() {
-		withObservationTracking { _ = queuedSamples.isEmpty } onChange: {
-			Task { @MainActor in
-				self.isPlaying = self.queuedSamples.isEmpty
-			}
-
-			self._keepIsPlayingPropertyUpdated()
-		}
-	}
+//	private func _keepIsPlayingPropertyUpdated() {
+//		withObservationTracking { _ = queuedSamples.isEmpty } onChange: {
+//			Task { @MainActor in
+//				self.isPlaying = self.queuedSamples.isEmpty
+//			}
+//
+//			self._keepIsPlayingPropertyUpdated()
+//		}
+//	}
 }
