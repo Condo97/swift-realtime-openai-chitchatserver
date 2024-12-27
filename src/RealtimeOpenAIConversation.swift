@@ -280,6 +280,7 @@ public extension RealtimeOpenAIConversation {
 @available(iOS 17.0, *)
 private extension RealtimeOpenAIConversation {
 	@MainActor func handleEvent(_ event: ServerEvent) {
+        print(event)
 		switch event {
 			case let .error(event):
 				errorStream.yield(event.error)
