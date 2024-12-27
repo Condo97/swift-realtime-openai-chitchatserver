@@ -91,10 +91,10 @@ public final class RealtimeOpenAIConversation: Sendable {
 	deinit {
 		errorStream.finish()
 
-//		DispatchQueue.main.asyncAndWait {
-        DispatchQueue.main.async { [self] in
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
 			cancelTask?()
-			stopHandlingVoice()
+			stopHandlingVoice() // This is done or I guess should be done onDissapear.. because of the guard neither of these will probably ever be executed so they need to be handled in the view
 		}
 	}
 
