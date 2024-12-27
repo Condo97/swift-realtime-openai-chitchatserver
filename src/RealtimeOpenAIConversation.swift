@@ -56,6 +56,10 @@ public final class RealtimeOpenAIConversation: Sendable {
 			default: return nil
 		} }
 	}
+    
+    public var playerNodeIsPlaying: Bool {
+        playerNode.isPlaying
+    }
 
 	private init(client: RealtimeAPI) {
 		self.client = client
