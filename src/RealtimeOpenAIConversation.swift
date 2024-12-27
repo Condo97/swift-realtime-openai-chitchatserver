@@ -528,46 +528,52 @@ private extension RealtimeOpenAIConversation {
 //        return CGFloat(min(max(rms, 0.0), 1.0))
     }
 
-    /// Calculates volume levels across four frequency bands from an AVAudioPCMBuffer.
+    /// Calculates volume levels across four frequency bands from an AVAudioPCMBuffer with Int16 format.
     private func updateAudioLevels(from buffer: AVAudioPCMBuffer) -> [CGFloat]? {
-        guard let channelData = buffer.floatChannelData else { return nil }
+        guard let intData = buffer.int16ChannelData?[0] else { return nil }
+        let intDataArray = Array(UnsafeBufferPointer(start: intData, count: Int(buffer.frameLength)))
         
-        var audioLevels: [CGFloat] = Array(repeating: 0.0, count: 4) // Four levels TODO: Make this dynamic
-
-        let channelCount = Int(buffer.format.channelCount)
+        // Convert Int16 samples to Float and normalize to [-1.0, 1.0]
+        let floatDataArray = intDataArray.map { Float($0) / Float(Int16.max) }
+        
+        // Define frequency bands (simplified based on frame indices)
+        // Note: For accurate frequency analysis, consider using FFT.
         let frameLength = Int(buffer.frameLength)
-        let lowPassRange = 1000.0 // Low frequency up to 1000 Hz
-        let midLowRange = 2000.0   // Mid-low frequency up to 2000 Hz
-        let midHighRange = 3000.0  // Mid-high frequency up to 3000 Hz
-        let highRange = 4000.0     // High frequency up to 4000 Hz
-
+        let lowPassRange = frameLength / 4         // Approx. 0 - 25% of data
+        let midLowRange = frameLength / 2         // Approx. 25% - 50%
+        let midHighRange = (3 * frameLength) / 4  // Approx. 50% - 75%
+        let highRange = frameLength               // Approx. 75% - 100%
+        
         var lowLevel: Float = 0.0
         var midLowLevel: Float = 0.0
         var midHighLevel: Float = 0.0
         var highLevel: Float = 0.0
-
-        // Simple amplitude measurement
-        for frame in 0..<frameLength {
-            let sample = channelData[0][frame]
-
-            // Categorize sample into frequency bands
-            if frame < Int(lowPassRange) {
-                lowLevel += abs(sample)
-            } else if frame < Int(midLowRange) {
-                midLowLevel += abs(sample)
-            } else if frame < Int(midHighRange) {
-                midHighLevel += abs(sample)
-            } else if frame < Int(highRange) {
-                highLevel += abs(sample)
+        
+        // Simple amplitude measurement based on sample indices
+        for (index, sample) in floatDataArray.enumerated() {
+            let absSample = abs(sample)
+            
+            if index < lowPassRange {
+                lowLevel += absSample
+            } else if index < midLowRange {
+                midLowLevel += absSample
+            } else if index < midHighRange {
+                midHighLevel += absSample
+            } else {
+                highLevel += absSample
             }
         }
-
-        // Normalize and set levels
-        let maxVolume = 80.0
-        audioLevels[0] = max(min(CGFloat(lowLevel) / CGFloat(maxVolume), 1.0), 0.0)
-        audioLevels[1] = max(min(CGFloat(midLowLevel) / CGFloat(maxVolume), 1.0), 0.0)
-        audioLevels[2] = max(min(CGFloat(midHighLevel) / CGFloat(maxVolume), 1.0), 0.0)
-        audioLevels[3] = max(min(CGFloat(highLevel) / CGFloat(maxVolume), 1.0), 0.0)
+        
+        // Normalize the levels to [0.0, 1.0]
+        // The normalization factor can be adjusted based on empirical observations
+        let normalizationFactor: Float = 1.0
+        
+        let audioLevels: [CGFloat] = [
+            CGFloat(min(max(lowLevel / normalizationFactor, 0.0), 1.0)),
+            CGFloat(min(max(midLowLevel / normalizationFactor, 0.0), 1.0)),
+            CGFloat(min(max(midHighLevel / normalizationFactor, 0.0), 1.0)),
+            CGFloat(min(max(highLevel / normalizationFactor, 0.0), 1.0))
+        ]
         
         return audioLevels
     }
