@@ -20,7 +20,7 @@ public final class RealtimeOpenAIConversation: Sendable {
     private let userConverter = UnsafeInteriorMutable<AVAudioConverter>()
     private let desiredFormat = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: 24000, channels: 1, interleaved: false)!
     
-    private var tapInstalled: Bool = false
+    @MainActor private var tapInstalled: Bool = false
     
     /// A stream of errors that occur during the conversation.
     public let errors: AsyncStream<ServerError>
@@ -199,11 +199,13 @@ public extension RealtimeOpenAIConversation {
         if !handlingVoice { try startHandlingVoice() }
         
         Task.detached { // Synchronously install tap
-            if !self.tapInstalled {
+            if await !self.tapInstalled {
                 self.audioEngine.inputNode.installTap(onBus: 0, bufferSize: 4096, format: self.audioEngine.inputNode.outputFormat(forBus: 0)) { [weak self] buffer, _ in
                     self?.processAudioBufferFromUser(buffer: buffer)
                 }
-                self.tapInstalled = true
+                await MainActor.run {
+                    self.tapInstalled = true
+                }
             }
         }
         
