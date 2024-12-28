@@ -196,11 +196,13 @@ public extension RealtimeOpenAIConversation {
         guard !isListening else { return }
         if !handlingVoice { try startHandlingVoice() }
         
-        //		Task.detached { // Synchronously install tap
-        self.audioEngine.inputNode.installTap(onBus: 0, bufferSize: 4096, format: self.audioEngine.inputNode.outputFormat(forBus: 0)) { [weak self] buffer, _ in
-            self?.processAudioBufferFromUser(buffer: buffer)
+        DispatchQueue.main.async {
+            //		Task.detached { // Synchronously install tap
+            self.audioEngine.inputNode.installTap(onBus: 0, bufferSize: 4096, format: self.audioEngine.inputNode.outputFormat(forBus: 0)) { [weak self] buffer, _ in
+                self?.processAudioBufferFromUser(buffer: buffer)
+            }
+            //		}
         }
-        //		}
         
         isListening = true
     }
