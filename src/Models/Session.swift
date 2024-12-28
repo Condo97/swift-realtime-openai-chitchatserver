@@ -4,7 +4,7 @@ public struct Session: Codable, Equatable, Sendable {
 		case audio
 	}
 
-	public enum Voice: String, Codable, Sendable {
+	public enum Voice: String, Codable, CaseIterable, Sendable {
 		case alloy
 		case echo
 		case shimmer
