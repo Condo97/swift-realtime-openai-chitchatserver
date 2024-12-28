@@ -45,8 +45,8 @@ extension RealtimeAPI {
 //            URLQueryItem(name: "model", value: model),
             URLQueryItem(name: "authToken", value: "asdf")
         ]))
-        request.addValue("realtime=v1", forHTTPHeaderField: "OpenAI-Beta")
-        request.addValue("Bearer \(authToken)", forHTTPHeaderField: "Authorization")
+//        request.addValue("realtime=v1", forHTTPHeaderField: "OpenAI-Beta")
+//        request.addValue("Bearer \(authToken)", forHTTPHeaderField: "Authorization")
 
         return webSocket(connectingTo: request)
     }

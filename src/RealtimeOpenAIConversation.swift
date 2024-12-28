@@ -566,7 +566,7 @@ private extension RealtimeOpenAIConversation {
         
         // Normalize the levels to [0.0, 1.0]
         // The normalization factor can be adjusted based on empirical observations
-        let normalizationFactor: Float = 1.0
+        let normalizationFactor: Float = 5.0
         
         let audioLevels: [CGFloat] = [
             CGFloat(min(max(lowLevel / normalizationFactor, 0.0), 1.0)),
