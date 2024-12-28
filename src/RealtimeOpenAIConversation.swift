@@ -20,6 +20,8 @@ public final class RealtimeOpenAIConversation: Sendable {
     private let userConverter = UnsafeInteriorMutable<AVAudioConverter>()
     private let desiredFormat = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: 24000, channels: 1, interleaved: false)!
     
+    private var tapInstalled: Bool = false
+    
     /// A stream of errors that occur during the conversation.
     public let errors: AsyncStream<ServerError>
     
@@ -196,11 +198,14 @@ public extension RealtimeOpenAIConversation {
         guard !isListening else { return }
         if !handlingVoice { try startHandlingVoice() }
         
-        		Task.detached { // Synchronously install tap
-        self.audioEngine.inputNode.installTap(onBus: 0, bufferSize: 4096, format: self.audioEngine.inputNode.outputFormat(forBus: 0)) { [weak self] buffer, _ in
-            self?.processAudioBufferFromUser(buffer: buffer)
+        Task.detached { // Synchronously install tap
+            if !self.tapInstalled {
+                self.audioEngine.inputNode.installTap(onBus: 0, bufferSize: 4096, format: self.audioEngine.inputNode.outputFormat(forBus: 0)) { [weak self] buffer, _ in
+                    self?.processAudioBufferFromUser(buffer: buffer)
+                }
+                self.tapInstalled = true
+            }
         }
-        		}
         
         isListening = true
     }
@@ -210,7 +215,10 @@ public extension RealtimeOpenAIConversation {
     @MainActor func stopListening() {
         guard isListening else { return }
         
-        audioEngine.inputNode.removeTap(onBus: 0)
+        if tapInstalled {
+            audioEngine.inputNode.removeTap(onBus: 0)
+            tapInstalled = false
+        }
         isListening = false
     }
     
@@ -273,7 +281,10 @@ public extension RealtimeOpenAIConversation {
         guard handlingVoice else { return }
         
         if isListening { // Update `stopHandlingVoice` to avoid redundant tap removals if `stopListening` already handles it.
-            audioEngine.inputNode.removeTap(onBus: 0)
+            if tapInstalled {
+                audioEngine.inputNode.removeTap(onBus: 0)
+                tapInstalled = false
+            }
             isListening = false
         }
         
