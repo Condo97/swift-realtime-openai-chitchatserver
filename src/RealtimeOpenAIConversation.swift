@@ -9,7 +9,7 @@ public enum ConversationError: Error {
 @available(iOS 17.0, *)
 @Observable
 public final class RealtimeOpenAIConversation: Sendable {
-    private let client: RealtimeAPI
+    @MainActor private var client: RealtimeAPI?
     @MainActor private var cancelTask: (() -> Void)?
     private let errorStream: AsyncStream<ServerError>.Continuation
     
@@ -68,9 +68,17 @@ public final class RealtimeOpenAIConversation: Sendable {
     /// Volume levels across four frequency bands for the user's speech (0.0 to 1.0)
     @MainActor public var userFrequencyVolumes: [CGFloat] = [0.0, 0.0, 0.0, 0.0]
     
-    private init(client: RealtimeAPI) {
-        self.client = client
+    init() {
         (errors, errorStream) = AsyncStream.makeStream(of: ServerError.self)
+    }
+    
+    @MainActor public func connect(authToken token: String, model: String = "gpt-4o-realtime-preview") {
+        connect(client: RealtimeAPI.webSocket(authToken: token, model: model))
+    }
+    
+//    private init(client: RealtimeAPI) {
+    @MainActor public func connect(client: RealtimeAPI) {
+        self.client = client
         print("RealtimeOpenAIConversation initialized with id: \(UUID())")
         let task = Task { [weak self] in
             guard let self else { return }
@@ -97,6 +105,7 @@ public final class RealtimeOpenAIConversation: Sendable {
             
             //			_keepIsPlayingPropertyUpdated() // TODO: Contribute this
         }
+        //    }
     }
     
     deinit {
@@ -114,14 +123,14 @@ public final class RealtimeOpenAIConversation: Sendable {
     }
     
     /// Create a new conversation providing an API token and, optionally, a model.
-    public convenience init(authToken token: String, model: String = "gpt-4o-realtime-preview") {
-        self.init(client: RealtimeAPI.webSocket(authToken: token, model: model))
-    }
+//    public convenience init(authToken token: String, model: String = "gpt-4o-realtime-preview") {
+//        self.init(client: RealtimeAPI.webSocket(authToken: token, model: model))
+//    }
     
     /// Create a new conversation that connects using a custom `URLRequest`.
-    public convenience init(connectingTo request: URLRequest) {
-        self.init(client: RealtimeAPI.webSocket(connectingTo: request))
-    }
+//    public convenience init(connectingTo request: URLRequest) {
+//        self.init(client: RealtimeAPI.webSocket(connectingTo: request))
+//    }
     
     /// Wait for the connection to be established
     @MainActor public func waitForConnection() async {
@@ -158,13 +167,13 @@ public final class RealtimeOpenAIConversation: Sendable {
         var session = session
         session.id = nil
         
-        try await client.send(event: .updateSession(session))
+        try await client?.send(event: .updateSession(session))
     }
     
     /// Send a client event to the server.
     /// > Warning: This function is intended for advanced use cases. Use the other functions to send messages and audio data.
     public func send(event: ClientEvent) async throws {
-        try await client.send(event: event)
+        try await client?.send(event: event)
     }
     
     /// Manually append audio bytes to the conversation.
@@ -270,7 +279,7 @@ public extension RealtimeOpenAIConversation {
             
             Task {
                 do {
-                    try await client.send(event: .truncateConversationItem(forItem: itemID, atAudioMs: audioTimeInMilliseconds))
+                    try await client?.send(event: .truncateConversationItem(forItem: itemID, atAudioMs: audioTimeInMilliseconds))
                 } catch {
                     print("Failed to send automatic truncation event: \(error)")
                 }
