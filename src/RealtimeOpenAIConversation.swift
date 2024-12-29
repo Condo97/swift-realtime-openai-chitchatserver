@@ -19,7 +19,6 @@ public final class RealtimeOpenAIConversation: Sendable {
     private let apiConverter = UnsafeInteriorMutable<AVAudioConverter>()
     private let userConverter = UnsafeInteriorMutable<AVAudioConverter>()
     private let desiredFormat = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: 24000, channels: 1, interleaved: false)!
-//    private let desiredFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 44000, channels: 1, interleaved: false)!
     
     @MainActor private var tapInstalled: Bool = false
     
@@ -292,6 +291,7 @@ public extension RealtimeOpenAIConversation {
         }
         
         audioEngine.stop()
+        audioEngine.reset()
         audioEngine.disconnectNodeInput(playerNode)
         audioEngine.disconnectNodeOutput(playerNode)
         
