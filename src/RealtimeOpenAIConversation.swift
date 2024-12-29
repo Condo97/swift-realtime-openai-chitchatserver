@@ -18,7 +18,7 @@ public final class RealtimeOpenAIConversation: Sendable {
     private let queuedSamples = UnsafeMutableArray<String>()
     private let apiConverter = UnsafeInteriorMutable<AVAudioConverter>()
     private let userConverter = UnsafeInteriorMutable<AVAudioConverter>()
-    private let desiredFormat = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: 44000, channels: 1, interleaved: false)!
+    private let desiredFormat = AVAudioFormat(commonFormat: .pcmFormatInt16, sampleRate: 24000, channels: 1, interleaved: false)!
 //    private let desiredFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: 44000, channels: 1, interleaved: false)!
     
     @MainActor private var tapInstalled: Bool = false
