@@ -72,11 +72,11 @@ public final class RealtimeOpenAIConversation: Sendable {
         self.client = client
         (errors, errorStream) = AsyncStream.makeStream(of: ServerError.self)
         
-        let task = Task { [weak self] in
-            guard let self else { return }
+        let task = Task { @MainActor in//[weak self] in
+//            guard let self else { return }
             
             for try await event in client.events {
-                await self.handleEvent(event)
+                /*await*/ self.handleEvent(event)
             }
             
             await MainActor.run {
