@@ -71,7 +71,7 @@ public final class RealtimeOpenAIConversation: Sendable {
     private init(client: RealtimeAPI) {
         self.client = client
         (errors, errorStream) = AsyncStream.makeStream(of: ServerError.self)
-        
+        print("RealtimeOpenAIConversation initialized with id: \(UUID())")
         let task = Task { [weak self] in
             guard let self else { return }
             
