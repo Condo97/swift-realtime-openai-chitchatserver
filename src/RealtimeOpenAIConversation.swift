@@ -8,6 +8,7 @@ public enum ConversationError: Error {
 
 @available(iOS 17.0, *)
 @Observable
+@MainActor
 public final class RealtimeOpenAIConversation: Sendable {
     private let client: RealtimeAPI
     @MainActor private var cancelTask: (() -> Void)?
@@ -202,16 +203,16 @@ public extension RealtimeOpenAIConversation {
         guard !isListening else { return }
         if !handlingVoice { try startHandlingVoice() }
         
-        Task.detached { // Synchronously install tap
-            if await !self.tapInstalled {
+//        Task.detached { // Synchronously install tap
+            if !self.tapInstalled {
                 self.audioEngine.inputNode.installTap(onBus: 0, bufferSize: 4096, format: self.audioEngine.inputNode.outputFormat(forBus: 0)) { [weak self] buffer, _ in
                     self?.processAudioBufferFromUser(buffer: buffer)
                 }
-                await MainActor.run {
+//                await MainActor.run {
                     self.tapInstalled = true
-                }
+//                }
             }
-        }
+//        }
         
         isListening = true
     }
