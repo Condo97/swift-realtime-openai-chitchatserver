@@ -81,8 +81,6 @@ public final class RealtimeOpenAIConversation: Sendable {
             
             await MainActor.run {
                 self.connected = false
-                cancelTask?()
-                stopHandlingVoice() // This is done or I guess should be done onDissapear.. because of the guard neither of these will probably ever be executed so they need to be handled in the view
             }
         }
         
@@ -108,7 +106,11 @@ public final class RealtimeOpenAIConversation: Sendable {
 //            guard let self = self else { return } // TODO: Contribute this potentially, highlight that it causes a crash on dismiss sometimes at least
 //            cancelTask?()
 //            stopHandlingVoice() // This is done or I guess should be done onDissapear.. because of the guard neither of these will probably ever be executed so they need to be handled in the view
+//        cancelTask?()
+//        stopHandlingVoice() // This is done or I guess should be done onDissapear.. because of the guard neither of these will probably ever be executed so they need to be handled in the view
 //        }
+        try? AVAudioSession.sharedInstance().setActive(false)
+        
     }
     
     /// Create a new conversation providing an API token and, optionally, a model.
