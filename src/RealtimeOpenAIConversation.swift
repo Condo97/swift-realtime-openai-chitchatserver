@@ -72,7 +72,7 @@ public final class RealtimeOpenAIConversation: Sendable {
         self.client = client
         (errors, errorStream) = AsyncStream.makeStream(of: ServerError.self)
         
-        let task = Task.detached { [weak self] in
+        let task = Task { [weak self] in
             guard let self else { return }
             
             for try await event in client.events {
@@ -198,7 +198,7 @@ public extension RealtimeOpenAIConversation {
         guard !isListening else { return }
         if !handlingVoice { try startHandlingVoice() }
         
-        Task.detached { // Synchronously install tap
+        Task { // Synchronously install tap
             if await !self.tapInstalled {
                 self.audioEngine.inputNode.installTap(onBus: 0, bufferSize: 4096, format: self.audioEngine.inputNode.outputFormat(forBus: 0)) { [weak self] buffer, _ in
                     self?.processAudioBufferFromUser(buffer: buffer)
