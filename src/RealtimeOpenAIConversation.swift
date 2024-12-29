@@ -8,7 +8,6 @@ public enum ConversationError: Error {
 
 @available(iOS 17.0, *)
 @Observable
-@MainActor
 public final class RealtimeOpenAIConversation: Sendable {
     private let client: RealtimeAPI
     @MainActor private var cancelTask: (() -> Void)?
