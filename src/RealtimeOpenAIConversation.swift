@@ -68,7 +68,7 @@ public final class RealtimeOpenAIConversation: Sendable {
     /// Volume levels across four frequency bands for the user's speech (0.0 to 1.0)
     @MainActor public var userFrequencyVolumes: [CGFloat] = [0.0, 0.0, 0.0, 0.0]
     
-    init() {
+    public init() {
         (errors, errorStream) = AsyncStream.makeStream(of: ServerError.self)
     }
     
