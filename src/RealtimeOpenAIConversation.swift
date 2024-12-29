@@ -198,7 +198,7 @@ public extension RealtimeOpenAIConversation {
         guard !isListening else { return }
         if !handlingVoice { try startHandlingVoice() }
         
-        Task { // Synchronously install tap
+        Task.detached { // Synchronously install tap
             if await !self.tapInstalled {
                 self.audioEngine.inputNode.installTap(onBus: 0, bufferSize: 4096, format: self.audioEngine.inputNode.outputFormat(forBus: 0)) { [weak self] buffer, _ in
                     self?.processAudioBufferFromUser(buffer: buffer)
