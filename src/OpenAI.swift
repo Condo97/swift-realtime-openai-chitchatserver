@@ -39,11 +39,11 @@ extension RealtimeAPI {
     }
 
     /// Connect to the OpenAI WebSocket Realtime API with the given authentication token and model.
-    static func webSocket(authToken: String, model: String = "gpt-4o-realtime-preview") -> RealtimeAPI {
+    static func webSocket(authToken: String, model: String = "gpt-4o-realtime-preview", url: URL) -> RealtimeAPI {
 //        var request = URLRequest(url: URL(string: "wss://api.openai.com/v1/realtime")!.appending(queryItems: [
-        var request = URLRequest(url: URL(string: "wss://chitchatserver.com/v1/realtime")!.appending(queryItems: [
+        var request = URLRequest(url: url.appending(queryItems: [
 //            URLQueryItem(name: "model", value: model),
-            URLQueryItem(name: "authToken", value: "asdf")
+            URLQueryItem(name: "authToken", value: authToken)
         ]))
 //        request.addValue("realtime=v1", forHTTPHeaderField: "OpenAI-Beta")
 //        request.addValue("Bearer \(authToken)", forHTTPHeaderField: "Authorization")
