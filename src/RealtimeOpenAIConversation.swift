@@ -508,8 +508,18 @@ private extension RealtimeOpenAIConversation {
             }
         }
         
-        Task {
-            try await send(audioDelta: audioData)
+        // Client-side echo prevention: Don't send audio while the AI is playing
+        // This prevents the speaker output from being picked up by the microphone
+        // and causing false speech detection / self-interruption
+        Task { @MainActor in
+            guard !self.isPlaying else {
+                // Skip sending audio while AI is playing to prevent echo-triggered interruptions
+                return
+            }
+            
+            Task {
+                try await self.send(audioDelta: audioData)
+            }
         }
     }
     
