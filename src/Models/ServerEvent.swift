@@ -59,6 +59,30 @@ public enum ServerEvent: Sendable {
 		public let itemId: String
 	}
 
+	/// Sent when the output audio buffer has started playing.
+	public struct OutputAudioBufferStartedEvent: Decodable, Sendable {
+		/// The unique ID of the server event.
+		public let eventId: String
+	}
+
+	/// Sent when the output audio buffer has stopped playing.
+	public struct OutputAudioBufferStoppedEvent: Decodable, Sendable {
+		/// The unique ID of the server event.
+		public let eventId: String
+	}
+
+	/// Sent when the text value of an input audio transcription content part is updated.
+	public struct ConversationItemInputAudioTranscriptionDeltaEvent: Decodable, Sendable {
+		/// The unique ID of the server event.
+		public let eventId: String
+		/// The ID of the item.
+		public let itemId: String
+		/// The index of the content part in the item's content array.
+		public let contentIndex: Int
+		/// The text delta.
+		public let delta: String
+	}
+
 	public struct ConversationItemCreatedEvent: Decodable, Sendable {
 		/// The unique ID of the server event.
 		public let eventId: String
@@ -319,10 +343,16 @@ public enum ServerEvent: Sendable {
 	case inputAudioBufferSpeechStarted(InputAudioBufferSpeechStartedEvent)
 	/// Returned in server turn detection mode when speech stops.
 	case inputAudioBufferSpeechStopped(InputAudioBufferSpeechStoppedEvent)
+	/// Returned when the output audio buffer has started playing.
+	case outputAudioBufferStarted(OutputAudioBufferStartedEvent)
+	/// Returned when the output audio buffer has stopped playing.
+	case outputAudioBufferStopped(OutputAudioBufferStoppedEvent)
 	/// Returned when a conversation item is created.
 	case conversationItemCreated(ConversationItemCreatedEvent)
 	/// Returned when input audio transcription is enabled and a transcription succeeds.
 	case conversationItemInputAudioTranscriptionCompleted(ConversationItemInputAudioTranscriptionCompletedEvent)
+	/// Returned when the text value of an input audio transcription content part is updated.
+	case conversationItemInputAudioTranscriptionDelta(ConversationItemInputAudioTranscriptionDeltaEvent)
 	/// Returned when input audio transcription is configured, and a transcription request for a user message failed.
 	case conversationItemInputAudioTranscriptionFailed(ConversationItemInputAudioTranscriptionFailedEvent)
 	/// Returned when an earlier assistant audio message item is truncated by the client.
@@ -380,9 +410,15 @@ extension ServerEvent: Identifiable {
 				return event.eventId
 			case let .inputAudioBufferSpeechStopped(event):
 				return event.eventId
+			case let .outputAudioBufferStarted(event):
+				return event.eventId
+			case let .outputAudioBufferStopped(event):
+				return event.eventId
 			case let .conversationItemCreated(event):
 				return event.eventId
 			case let .conversationItemInputAudioTranscriptionCompleted(event):
+				return event.eventId
+			case let .conversationItemInputAudioTranscriptionDelta(event):
 				return event.eventId
 			case let .conversationItemInputAudioTranscriptionFailed(event):
 				return event.eventId
@@ -450,10 +486,16 @@ extension ServerEvent: Decodable {
 				self = try .inputAudioBufferSpeechStarted(InputAudioBufferSpeechStartedEvent(from: decoder))
 			case "input_audio_buffer.speech_stopped":
 				self = try .inputAudioBufferSpeechStopped(InputAudioBufferSpeechStoppedEvent(from: decoder))
+			case "output_audio_buffer.started":
+				self = try .outputAudioBufferStarted(OutputAudioBufferStartedEvent(from: decoder))
+			case "output_audio_buffer.stopped":
+				self = try .outputAudioBufferStopped(OutputAudioBufferStoppedEvent(from: decoder))
 			case "conversation.item.created":
 				self = try .conversationItemCreated(ConversationItemCreatedEvent(from: decoder))
 			case "conversation.item.input_audio_transcription.completed":
 				self = try .conversationItemInputAudioTranscriptionCompleted(ConversationItemInputAudioTranscriptionCompletedEvent(from: decoder))
+			case "conversation.item.input_audio_transcription.delta":
+				self = try .conversationItemInputAudioTranscriptionDelta(ConversationItemInputAudioTranscriptionDeltaEvent(from: decoder))
 			case "conversation.item.input_audio_transcription.failed":
 				self = try .conversationItemInputAudioTranscriptionFailed(ConversationItemInputAudioTranscriptionFailedEvent(from: decoder))
 			case "conversation.item.truncated":

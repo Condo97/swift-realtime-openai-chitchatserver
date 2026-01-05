@@ -47,7 +47,12 @@ public final class RealtimeOpenAIConversation: Sendable {
     /// This only works when using the server's voice detection.
     @MainActor public private(set) var isUserSpeaking: Bool = false
     
-    /// Whether the model is currently speaking.
+    /// Whether the model is currently generating/streaming audio (server-side).
+    /// This is based on server events (outputAudioBufferStarted/Stopped).
+    @MainActor public private(set) var isModelSpeaking: Bool = false
+    
+    /// Whether the model audio is currently playing (client-side).
+    /// This is based on the local audio player state.
     @MainActor public private(set) var isPlaying: Bool = false
     
     /// A list of messages in the conversation.
@@ -383,6 +388,16 @@ private extension RealtimeOpenAIConversation {
             if handlingVoice { interruptSpeech() }
         case .inputAudioBufferSpeechStopped:
             isUserSpeaking = false
+        case .outputAudioBufferStarted:
+            isModelSpeaking = true
+        case .outputAudioBufferStopped:
+            isModelSpeaking = false
+        case let .conversationItemInputAudioTranscriptionDelta(event):
+            updateEvent(id: event.itemId) { message in
+                guard case let .input_audio(audio) = message.content[event.contentIndex] else { return }
+                
+                message.content[event.contentIndex] = .input_audio(.init(audio: audio.audio, transcript: (audio.transcript ?? "") + event.delta))
+            }
         case let .responseOutputItemDone(event): // TODO: Contribute this
             updateEvent(id: event.item.id) { message in
                 guard case let .message(newMessage) = event.item else { return }
