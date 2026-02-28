@@ -38,7 +38,7 @@ public extension Model {
 	}
 }
 
-public struct Session: Codable, Equatable, Sendable {
+public struct Session: Equatable, Sendable {
 	public enum Modality: String, Codable, Sendable {
 		case text
 		case audio
@@ -62,6 +62,16 @@ public struct Session: Codable, Equatable, Sendable {
 		case pcm16
 		case g711_ulaw
 		case g711_alaw
+
+		/// Map GA API format strings (e.g. "audio/pcm") to AudioFormat
+		static func fromGAFormat(_ type: String) -> AudioFormat {
+			switch type {
+				case "audio/pcm", "pcm16": return .pcm16
+				case "audio/g711-ulaw", "g711_ulaw": return .g711_ulaw
+				case "audio/g711-alaw", "g711_alaw": return .g711_alaw
+				default: return .pcm16
+			}
+		}
 	}
 
 	public struct InputAudioTranscription: Codable, Equatable, Sendable {
@@ -375,9 +385,6 @@ public struct Session: Codable, Equatable, Sendable {
 	/// Configuration for turn detection.
 	public var turnDetection: TurnDetection?
 	/// Configuration for input audio noise reduction.
-	/// Noise reduction filters audio added to the input audio buffer before it is sent to VAD and the model.
-	/// Filtering the audio can improve VAD and turn detection accuracy (reducing false positives)
-	/// and model performance by improving perception of the input audio.
 	public var noiseReduction: NoiseReduction?
 	/// Tools (functions) available to the model.
 	public var tools: [Tool]
@@ -456,6 +463,135 @@ public struct Session: Codable, Equatable, Sendable {
 	}
 }
 
+// MARK: - Custom Codable for GA API compatibility
+
+extension Session: Codable {
+	/// GA API nests audio config under "audio.input" and "audio.output"
+	private struct GAAudioConfig: Codable {
+		struct Input: Codable {
+			struct Format: Codable {
+				let type: String
+			}
+			let format: Format?
+			let transcription: InputAudioTranscription?
+			let noiseReduction: NoiseReduction?
+			let turnDetection: TurnDetection?
+		}
+		struct Output: Codable {
+			struct Format: Codable {
+				let type: String
+			}
+			let format: Format?
+			let voice: String?
+		}
+		let input: Input?
+		let output: Output?
+	}
+
+	private enum CodingKeys: String, CodingKey {
+		case id, model, instructions, tools, temperature, voice, audio
+		case modalities
+		case outputModalities
+		case inputAudioFormat, outputAudioFormat
+		case inputAudioTranscription, turnDetection, noiseReduction
+		case toolChoice
+		case maxOutputTokens
+	}
+
+	public init(from decoder: any Decoder) throws {
+		let container = try decoder.container(keyedBy: CodingKeys.self)
+
+		// Simple fields (same in both formats)
+		id = try container.decodeIfPresent(String.self, forKey: .id)
+		model = try container.decodeIfPresent(String.self, forKey: .model) ?? "gpt-realtime"
+		instructions = try container.decodeIfPresent(String.self, forKey: .instructions) ?? ""
+		tools = try container.decodeIfPresent([Tool].self, forKey: .tools) ?? []
+		toolChoice = try container.decodeIfPresent(ToolChoice.self, forKey: .toolChoice) ?? .auto
+		temperature = try container.decodeIfPresent(Double.self, forKey: .temperature) ?? 0.8
+
+		// max_output_tokens: can be Int or String "inf" in GA
+		if let intValue = try? container.decode(Int.self, forKey: .maxOutputTokens) {
+			maxOutputTokens = intValue
+		} else {
+			maxOutputTokens = nil
+		}
+
+		// Modalities: GA uses "output_modalities", beta used "modalities"
+		if let mods = try? container.decode([Modality].self, forKey: .modalities) {
+			modalities = mods
+		} else if let mods = try? container.decode([Modality].self, forKey: .outputModalities) {
+			modalities = mods
+		} else {
+			modalities = [.text, .audio]
+		}
+
+		// Audio config: GA nests under "audio", beta has flat fields
+		if let audio = try? container.decode(GAAudioConfig.self, forKey: .audio) {
+			// GA format: extract from nested structure
+			if let voiceStr = audio.output?.voice, let v = Voice(rawValue: voiceStr) {
+				voice = v
+			} else {
+				voice = (try? container.decode(Voice.self, forKey: .voice)) ?? .alloy
+			}
+			inputAudioFormat = audio.input?.format.map { AudioFormat.fromGAFormat($0.type) } ?? .pcm16
+			outputAudioFormat = audio.output?.format.map { AudioFormat.fromGAFormat($0.type) } ?? .pcm16
+			inputAudioTranscription = audio.input?.transcription
+			turnDetection = audio.input?.turnDetection
+			noiseReduction = audio.input?.noiseReduction
+		} else {
+			// Beta format: flat fields
+			voice = (try? container.decode(Voice.self, forKey: .voice)) ?? .alloy
+			inputAudioFormat = try container.decodeIfPresent(AudioFormat.self, forKey: .inputAudioFormat) ?? .pcm16
+			outputAudioFormat = try container.decodeIfPresent(AudioFormat.self, forKey: .outputAudioFormat) ?? .pcm16
+			inputAudioTranscription = try container.decodeIfPresent(InputAudioTranscription.self, forKey: .inputAudioTranscription)
+			turnDetection = try container.decodeIfPresent(TurnDetection.self, forKey: .turnDetection)
+			noiseReduction = try container.decodeIfPresent(NoiseReduction.self, forKey: .noiseReduction)
+		}
+	}
+
+	public func encode(to encoder: Encoder) throws {
+		var container = encoder.container(keyedBy: CodingKeys.self)
+
+		try container.encodeIfPresent(id, forKey: .id)
+		try container.encode(model, forKey: .model)
+		try container.encode(modalities, forKey: .modalities)
+		try container.encode(instructions, forKey: .instructions)
+		try container.encode(voice, forKey: .voice)
+		try container.encode(inputAudioFormat, forKey: .inputAudioFormat)
+		try container.encode(outputAudioFormat, forKey: .outputAudioFormat)
+		try container.encodeIfPresent(inputAudioTranscription, forKey: .inputAudioTranscription)
+		try container.encodeIfPresent(turnDetection, forKey: .turnDetection)
+		try container.encodeIfPresent(noiseReduction, forKey: .noiseReduction)
+		try container.encode(tools, forKey: .tools)
+		try container.encode(toolChoice, forKey: .toolChoice)
+		try container.encode(temperature, forKey: .temperature)
+		try container.encodeIfPresent(maxOutputTokens, forKey: .maxOutputTokens)
+	}
+}
+
+// MARK: - Custom TurnDetection Codable (make createResponse optional for GA compat)
+
+extension Session.TurnDetection {
+	private enum TDCodingKeys: String, CodingKey {
+		case type, threshold, prefixPaddingMs, silenceDurationMs, createResponse
+		case eagerness, idleTimeout, interruptResponse
+	}
+
+	public init(from decoder: any Decoder) throws {
+		let container = try decoder.container(keyedBy: TDCodingKeys.self)
+		type = try container.decode(TurnDetectionType.self, forKey: .type)
+		threshold = try container.decodeIfPresent(Double.self, forKey: .threshold)
+		prefixPaddingMs = try container.decodeIfPresent(Int.self, forKey: .prefixPaddingMs)
+		silenceDurationMs = try container.decodeIfPresent(Int.self, forKey: .silenceDurationMs)
+		createResponse = try container.decodeIfPresent(Bool.self, forKey: .createResponse) ?? true
+		eagerness = try container.decodeIfPresent(Eagerness.self, forKey: .eagerness)
+		idleTimeout = try container.decodeIfPresent(Int.self, forKey: .idleTimeout)
+		interruptResponse = try container.decodeIfPresent(Bool.self, forKey: .interruptResponse)
+	}
+}
+
+// MARK: - ToolChoice Codable
+
 extension Session.ToolChoice: Codable {
 	private enum FunctionCall: Codable {
 		case type
@@ -479,7 +615,7 @@ extension Session.ToolChoice: Codable {
 				case "required":
 					self = .required
 				default:
-					throw DecodingError.dataCorruptedError(in: container, debugDescription: "Invalid value for enum.")
+					self = .auto
 			}
 		} else {
 			let container = try decoder.container(keyedBy: FunctionCall.CodingKeys.self)
