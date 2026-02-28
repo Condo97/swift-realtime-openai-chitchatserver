@@ -67,9 +67,18 @@ public struct Session: Equatable, Sendable {
 		static func fromGAFormat(_ type: String) -> AudioFormat {
 			switch type {
 				case "audio/pcm", "pcm16": return .pcm16
-				case "audio/g711-ulaw", "g711_ulaw": return .g711_ulaw
-				case "audio/g711-alaw", "g711_alaw": return .g711_alaw
+				case "audio/g711-ulaw", "audio/pcmu", "g711_ulaw": return .g711_ulaw
+				case "audio/g711-alaw", "audio/pcma", "g711_alaw": return .g711_alaw
 				default: return .pcm16
+			}
+		}
+
+		/// Convert to GA API MIME format string
+		var gaFormatType: String {
+			switch self {
+				case .pcm16: return "audio/pcm"
+				case .g711_ulaw: return "audio/pcmu"
+				case .g711_alaw: return "audio/pcma"
 			}
 		}
 	}
@@ -471,6 +480,7 @@ extension Session: Codable {
 		struct Input: Codable {
 			struct Format: Codable {
 				let type: String
+				let rate: Int?
 			}
 			let format: Format?
 			let transcription: InputAudioTranscription?
@@ -552,26 +562,26 @@ extension Session: Codable {
 	public func encode(to encoder: Encoder) throws {
 		var container = encoder.container(keyedBy: CodingKeys.self)
 
-		try container.encodeIfPresent(id, forKey: .id)
+		// GA API session.update valid fields only
 		try container.encode("realtime", forKey: .type)
 		try container.encode(model, forKey: .model)
 		try container.encode(modalities, forKey: .outputModalities)
 		try container.encode(instructions, forKey: .instructions)
-		try container.encode(tools, forKey: .tools)
-		try container.encode(toolChoice, forKey: .toolChoice)
-		try container.encode(temperature, forKey: .temperature)
-		try container.encodeIfPresent(maxOutputTokens, forKey: .maxOutputTokens)
+		if !tools.isEmpty {
+			try container.encode(tools, forKey: .tools)
+		}
+		// Note: temperature, toolChoice, maxOutputTokens are NOT valid in GA API
 
 		// GA format: nest audio config under "audio"
 		let audioConfig = GAAudioConfig(
 			input: GAAudioConfig.Input(
-				format: GAAudioConfig.Input.Format(type: inputAudioFormat.rawValue),
+				format: GAAudioConfig.Input.Format(type: inputAudioFormat.gaFormatType, rate: 24000),
 				transcription: inputAudioTranscription,
 				noiseReduction: noiseReduction,
 				turnDetection: turnDetection
 			),
 			output: GAAudioConfig.Output(
-				format: GAAudioConfig.Output.Format(type: outputAudioFormat.rawValue),
+				format: GAAudioConfig.Output.Format(type: outputAudioFormat.gaFormatType),
 				voice: voice.rawValue
 			)
 		)
