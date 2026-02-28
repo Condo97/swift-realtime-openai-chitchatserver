@@ -31,6 +31,7 @@ public final class WebSocketConnector: NSObject, Connector, Sendable {
 		task.delegate = self
 		receiveMessage()
 		task.resume()
+		print("[RealtimeSDK] WebSocket task resumed, connecting to: \(request.url?.absoluteString ?? "nil")")
 	}
 
 	deinit {
@@ -83,11 +84,17 @@ public final class WebSocketConnector: NSObject, Connector, Sendable {
 }
 
 extension WebSocketConnector: URLSessionWebSocketDelegate {
-	public func urlSession(_: URLSession, webSocketTask _: URLSessionWebSocketTask, didCloseWith _: URLSessionWebSocketTask.CloseCode, reason _: Data?) {
+	public func urlSession(_: URLSession, webSocketTask _: URLSessionWebSocketTask, didCloseWith closeCode: URLSessionWebSocketTask.CloseCode, reason: Data?) {
+		let reasonString = reason.flatMap { String(data: $0, encoding: .utf8) } ?? "none"
+		print("[RealtimeSDK] WebSocket closed — code: \(closeCode.rawValue), reason: \(reasonString)")
 		stream.finish()
 
 		Task { @MainActor in
 			onDisconnect?()
 		}
+	}
+
+	public func urlSession(_: URLSession, webSocketTask _: URLSessionWebSocketTask, didOpenWithProtocol protocol: String?) {
+		print("[RealtimeSDK] WebSocket opened — protocol: \(`protocol` ?? "none")")
 	}
 }
