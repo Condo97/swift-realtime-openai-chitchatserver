@@ -62,12 +62,20 @@ public final class WebSocketConnector: NSObject, Connector, Sendable {
 			case let .success(message):
 				switch message {
 				case let .string(text):
+					guard let data = text.data(using: .utf8) else {
+						print("[RealtimeSDK] Failed to encode received text as UTF-8, skipping")
+						break
+					}
 					do {
-						let event = try self.decoder.decode(ServerEvent.self, from: text.data(using: .utf8)!)
+						let event = try self.decoder.decode(ServerEvent.self, from: data)
 						self.stream.yield(event)
 					} catch {
 						print("[RealtimeSDK] Decode error: \(error)")
+						#if DEBUG
 						print("[RealtimeSDK] Raw message (first 1000 chars): \(String(text.prefix(1000)))")
+						#else
+						print("[RealtimeSDK] Decode error on message of length \(text.count)")
+						#endif
 					}
 
 				case let .data(data):
