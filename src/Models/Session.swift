@@ -489,7 +489,7 @@ extension Session: Codable {
 	}
 
 	private enum CodingKeys: String, CodingKey {
-		case id, model, instructions, tools, temperature, voice, audio
+		case id, type, model, instructions, tools, temperature, voice, audio
 		case modalities
 		case outputModalities
 		case inputAudioFormat, outputAudioFormat
@@ -553,19 +553,29 @@ extension Session: Codable {
 		var container = encoder.container(keyedBy: CodingKeys.self)
 
 		try container.encodeIfPresent(id, forKey: .id)
+		try container.encode("realtime", forKey: .type)
 		try container.encode(model, forKey: .model)
-		try container.encode(modalities, forKey: .modalities)
+		try container.encode(modalities, forKey: .outputModalities)
 		try container.encode(instructions, forKey: .instructions)
-		try container.encode(voice, forKey: .voice)
-		try container.encode(inputAudioFormat, forKey: .inputAudioFormat)
-		try container.encode(outputAudioFormat, forKey: .outputAudioFormat)
-		try container.encodeIfPresent(inputAudioTranscription, forKey: .inputAudioTranscription)
-		try container.encodeIfPresent(turnDetection, forKey: .turnDetection)
-		try container.encodeIfPresent(noiseReduction, forKey: .noiseReduction)
 		try container.encode(tools, forKey: .tools)
 		try container.encode(toolChoice, forKey: .toolChoice)
 		try container.encode(temperature, forKey: .temperature)
 		try container.encodeIfPresent(maxOutputTokens, forKey: .maxOutputTokens)
+
+		// GA format: nest audio config under "audio"
+		let audioConfig = GAAudioConfig(
+			input: GAAudioConfig.Input(
+				format: GAAudioConfig.Input.Format(type: inputAudioFormat.rawValue),
+				transcription: inputAudioTranscription,
+				noiseReduction: noiseReduction,
+				turnDetection: turnDetection
+			),
+			output: GAAudioConfig.Output(
+				format: GAAudioConfig.Output.Format(type: outputAudioFormat.rawValue),
+				voice: voice.rawValue
+			)
+		)
+		try container.encode(audioConfig, forKey: .audio)
 	}
 }
 
