@@ -53,19 +53,28 @@ public final class WebSocketConnector: NSObject, Connector, Sendable {
 			guard let self else { return }
 
 			switch result {
-				case let .failure(error):
-					self.stream.yield(error: error)
-				case let .success(message):
-					switch message {
-						case let .string(text):
-							self.stream.yield(with: Result { try self.decoder.decode(ServerEvent.self, from: text.data(using: .utf8)!) })
+			case let .failure(error):
+				print("[RealtimeSDK] WebSocket transport error: \(error)")
+				self.stream.finish(throwing: error)
+				return
 
-						case .data:
-							self.stream.yield(error: RealtimeAPIError.invalidMessage)
-
-						@unknown default:
-							self.stream.yield(error: RealtimeAPIError.invalidMessage)
+			case let .success(message):
+				switch message {
+				case let .string(text):
+					do {
+						let event = try self.decoder.decode(ServerEvent.self, from: text.data(using: .utf8)!)
+						self.stream.yield(event)
+					} catch {
+						print("[RealtimeSDK] Decode error: \(error)")
+						print("[RealtimeSDK] Raw message (first 1000 chars): \(String(text.prefix(1000)))")
 					}
+
+				case let .data(data):
+					print("[RealtimeSDK] Received unexpected binary message (\(data.count) bytes), skipping")
+
+				@unknown default:
+					print("[RealtimeSDK] Received unknown message type, skipping")
+				}
 			}
 
 			self.receiveMessage()
