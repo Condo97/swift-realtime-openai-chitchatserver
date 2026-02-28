@@ -51,7 +51,15 @@ public final class WebSocketConnector: NSObject, Connector, Sendable {
 
 	private func receiveMessage() {
 		task.receive { [weak self] result in
-			guard let self else { return }
+			guard let self else {
+				print("[RealtimeSDK] receiveMessage callback fired but self is nil (deallocated)")
+				return
+			}
+
+			switch result {
+			case .success: print("[RealtimeSDK] receiveMessage: got message from server")
+			case .failure(let err): print("[RealtimeSDK] receiveMessage: transport failure — \(err)")
+			}
 
 			switch result {
 			case let .failure(error):
@@ -68,6 +76,7 @@ public final class WebSocketConnector: NSObject, Connector, Sendable {
 					}
 					do {
 						let event = try self.decoder.decode(ServerEvent.self, from: data)
+						print("[RealtimeSDK] Decoded event: \(event)")
 						self.stream.yield(event)
 					} catch {
 						print("[RealtimeSDK] Decode error: \(error)")
